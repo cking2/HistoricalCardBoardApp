@@ -11,9 +11,11 @@ Available tasks are:
 You can find more information on installing Ruby and using rake tasks to simplify app development here: https://rally1.rallydev.com/apps/2.0p/doc/#!/guide/appsdk_20_starter_kit
 
 To launch chrome with cross-origin checks and file checks disabled, on windows it will look something like:
+
     Google Chrome.exe --disable-web-security --allow-file-access-from-files
 
 On mac:
+
     cd /Applications
     open Google\ Chrome.app --args --disable-web-security --allow-file-access-from-files
 
