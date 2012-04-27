@@ -23,14 +23,31 @@ Ext.define('CustomApp', {
                     width: 700,
                     height: 300,
                     xtype: 'textarea',
-                    value: '{\n\n}'
+                    value: '{\n'+
+                            '    "ObjectID": {$gt:0},\n'+
+                            '    "__At": "current"\n'+
+                            '}'
                 },
                 {
                     fieldLabel: 'Fields',
                     itemId: 'fieldsField',
                     anchor: '100%',
                     width: 700,
-                    value: "ObjectID, _UnformattedID, Name"
+                    value: "ObjectID, _ValidFrom, _UnformattedID, Name"
+                },
+                {
+                    fieldLabel: 'Sort',
+                    itemId: 'sortField',
+                    anchor: '100%',
+                    width: 700,
+                    value: "{'ObjectID' : -1, '_ValidFrom': 1}"
+                },
+                {
+                    fieldLabel: 'Page Size',
+                    itemId: 'pageSizeField',
+                    anchor: '100%',
+                    width: 700,
+                    value: '10'
                 }
             ],
             
@@ -67,12 +84,31 @@ Ext.define('CustomApp', {
                 selectedFields = selectedFields.split(', ');
             }
         }
+        
+        var sort = this.down('#sortField').getValue();
+        
+        var pageSize = this.down('#pageSizeField').getValue();
+        var parsedPageSize = parseInt(pageSize, 10);
+        // don't allow empty or 0 pagesize
+        pageSize = (parsedPageSize) ? parsedPageSize : 10;
 
         var callback = Ext.bind(this.processSnapshots, this);
-        this.doSearch(query, selectedFields, callback);
+        this.doSearch(query, selectedFields, sort, pageSize, callback);
     },
     
-    doSearch: function(query, fields, callback){
+    createSortMap: function(csvFields){
+        var fields = csvFields.split(', ');
+        var sortMap = {};
+        for(var field in fields){
+            if(fields.hasOwnProperty(field)){
+                sortMap[field] = 1;
+            }
+        }
+        
+        return sortMap;
+    },
+    
+    doSearch: function(query, fields, sort, pageSize, callback){
         var workspace = this.context.getWorkspace().ObjectID;
         var queryUrl = 'https://rally1.rallydev.com/analytics/1.32/'+ workspace +
                         '/artifact/snapshot/query.js';
@@ -81,7 +117,16 @@ Ext.define('CustomApp', {
         };
         
         if(fields){
+            //TODO can't handle $slice expression
             params.fields = Ext.JSON.encode(fields);
+        }
+        
+        if(sort){
+            params.sort = sort;
+        }
+        
+        if(pageSize){
+            params.pagesize = pageSize;
         }
         
         Ext.Ajax.cors = true;
