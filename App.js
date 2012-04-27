@@ -58,7 +58,7 @@ Ext.define('CustomApp', {
         
         var queryField = this.down('#queryField');
         var query = queryField.getValue();
-        var selectedFields = this.down('#fieldsField').getValue()
+        var selectedFields = this.down('#fieldsField').getValue();
         if(selectedFields){
             if(selectedFields === 'true'){
                 selectedFields = true;
