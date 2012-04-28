@@ -24,3 +24,5 @@ Also, the first time you search you'll get another auth prompt, this time for th
 You should only need to do these once and then the browser will cache it for the rest of your session (until the browser is closed).
 This is only a temporary limitation, which will be resolved in the final version of the analytics API, when we have integrated authentication with Rally ALM.
 
+Live JSFiddle Example:
+http://jsfiddle.net/markmsmith/MBSpX/4/
