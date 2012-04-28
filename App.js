@@ -21,7 +21,7 @@ Ext.define('CustomApp', {
                     itemId: 'queryField',
                     anchor:'100%',
                     width: 700,
-                    height: 300,
+                    height: 100,
                     xtype: 'textarea',
                     value: '{\n'+
                             '    "ObjectID": {$gt:0},\n'+
@@ -134,6 +134,7 @@ Ext.define('CustomApp', {
             url: queryUrl,
             method: 'GET',
             params: params,
+            withCredentials: true,
             success: function(response){
                 var text = response.responseText;
                 var json = Ext.JSON.decode(text);
@@ -164,7 +165,8 @@ Ext.define('CustomApp', {
             title: 'Snapshots',
             //store: Ext.data.StoreManager.lookup('snapshotStore'),
             store: snapshotStore,
-            columns: columns
+            columns: columns,
+            height: 400
         });
         
         var gridHolder = this.down('#gridHolder');
