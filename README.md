@@ -25,4 +25,4 @@ You should only need to do these once and then the browser will cache it for the
 This is only a temporary limitation, which will be resolved in the final version of the analytics API, when we have integrated authentication with Rally ALM.
 
 Live JSFiddle Example:
-http://jsfiddle.net/markmsmith/MBSpX/5/
+http://jsfiddle.net/markmsmith/MBSpX/
