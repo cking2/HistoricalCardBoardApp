@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LookbackApp</title>
+    <title>HistoricalCardBoardApp</title>
 
     <script type="text/javascript" src="https://rally1.rallydev.com/apps/2.0p/sdk-debug.js"></script>
     <script type="text/javascript" src="https://raw.github.com/lmaccherone/Lumenize/master/deploy/lumenize.js"></script>
@@ -10,10 +10,13 @@
         Rally.onReady(function() {
 			
             Rally.loadScripts([
+                "HistoricalCard.js",
+                "HistoricalCardBoardColumn.js",
+                "HistoricalCardBoard.js",
                 "App.js"
             ], function() {
                 Rally.launchApp('CustomApp', {
-                    name: 'LookbackApp'
+                    name: 'HistoricalCardBoardApp'
                 })
             }, true);
         });

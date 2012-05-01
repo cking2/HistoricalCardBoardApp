@@ -1,8 +1,11 @@
 {
-    "name": "LookbackApp",
+    "name": "HistoricalCardBoardApp",
     "className": "CustomApp",
     "sdk": "2.0p",
     "javascript": [
+		"HistoricalCard.js",
+		"HistoricalCardBoardColumn.js",
+		"HistoricalCardBoard.js",
         "App.js"
     ],
     "css": [

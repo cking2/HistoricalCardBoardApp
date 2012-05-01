@@ -6,6 +6,7 @@ Ext.define('CustomApp', {
         align: 'stretch'
     },
     items:[
+		/* 
         {
             xtype: 'panel',
             layout: 'anchor',
@@ -17,83 +18,53 @@ Ext.define('CustomApp', {
             bodyPadding: 5,
             items: [
                 {
-                    fieldLabel: 'Query',
-                    itemId: 'queryField',
+                    fieldLabel: 'View Date:',
+                    itemId: 'viewDateField',
                     anchor:'100%',
                     width: 700,
-                    height: 100,
-                    xtype: 'textarea',
-                    value: '{\n'+
-                            '    "ObjectID": {$gt:0},\n'+
-                            '    "__At": "current"\n'+
-                            '}'
+                    value: 'current'
                 },
-                {
-                    fieldLabel: 'Fields',
-                    itemId: 'fieldsField',
-                    anchor: '100%',
-                    width: 700,
-                    value: "ObjectID, _ValidFrom, _UnformattedID, Name"
-                },
-                {
-                    fieldLabel: 'Sort',
-                    itemId: 'sortField',
-                    anchor: '100%',
-                    width: 700,
-                    value: "{'ObjectID' : -1, '_ValidFrom': 1}"
-                },
-                {
-                    fieldLabel: 'Page Size',
-                    itemId: 'pageSizeField',
-                    anchor: '100%',
-                    width: 700,
-                    value: '10'
-                }
-            ],
-            
-            buttons: [
                 {
                     xtype: 'rallybutton',
-                    text: 'Search',
-                    itemId: 'searchButton'
+					text: 'RUN FOR IT MARTY!',
+					itemId: 'renderButton'
                 }
             ]
         },
+		*/
         {
-            xtype: 'panel',
-            itemId: 'gridHolder',
-            layout: 'fit',
-            height: 400
-        }
+			xtype: 'container',
+			itemId: 'cardboardHolder'
+		}
     ],
     launch: function() {
-        var button = this.down('#searchButton');
-        button.on('click', this.searchClicked, this);
+		this.down('#cardboardHolder').add({
+			xtype: 'historicalcardboard',
+			itemId: 'cardboard',
+			types: ['HierarchicalRequirement', 'Defect'],
+			attribute: 'KanbanState',
+			viewDate: 'current',
+			columnConfig: {
+				appContext : this.context
+			},
+			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" }, { value: "Released" } ]
+		});
+	
+		/* TODO
+        var button = this.down('#renderButton');
+        button.on('click', this.renderClicked, this);
+		*/
     },
     
-    searchClicked: function(){
-        
-        var queryField = this.down('#queryField');
-        var query = queryField.getValue();
-        var selectedFields = this.down('#fieldsField').getValue();
-        if(selectedFields){
-            if(selectedFields === 'true'){
-                selectedFields = true;
-            }
-            else{
-                selectedFields = selectedFields.split(', ');
-            }
-        }
-        
-        var sort = this.down('#sortField').getValue();
-        
-        var pageSize = this.down('#pageSizeField').getValue();
-        var parsedPageSize = parseInt(pageSize, 10);
-        // don't allow empty or 0 pagesize
-        pageSize = (parsedPageSize) ? parsedPageSize : 10;
-
-        var callback = Ext.bind(this.processSnapshots, this);
-        this.doSearch(query, selectedFields, sort, pageSize, callback);
+    renderClicked: function(){
+        var viewDateField = this.down('#viewDateField');
+        var viewDate = viewDateField.getValue();
+		
+		if( !(viewDate && viewDate.length > 0)) {
+			viewDate = 'current';
+		}
+		
+		this.down('#cardboard').setViewDate(viewDate);
     },
     
     createSortMap: function(csvFields){
