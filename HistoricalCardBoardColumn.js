@@ -144,8 +144,5 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 		
 		var key = ""+ card.record.get('ObjectID');
 		this.objectIDToCardMap[key] = card;
-		
-		var el = card.getEl();
-		el.on('mouseover', function(){ console.log(el.getXY()); });
 	}
 });
