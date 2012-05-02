@@ -27,12 +27,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCard', {
 		var ownerData = {};
 		var contextPath = Rally.environment.getServer().getContextUrl();
 		if (record.get('Owner')) {
-			ownerData.profileImageSrc = contextPath + '/profile/viewThumbnailImage.sp?tSize=20&uid=' + record.get('Owner');
-			
-			//TODO get owner name somehow (maybe async?)
-			//ownerData.ownerName = record.get('Owner')._refObjectName;
+			var owner = record.get('Owner');
+			ownerData.profileImageSrc = contextPath + '/profile/viewThumbnailImage.sp?tSize=20&uid=' + owner.ObjectID;
+			ownerData.ownerName = owner.Name;
 		} else {
-			//ownerData.ownerName = 'No Owner';
+			ownerData.ownerName = 'No Owner';
 			ownerData.profileImageSrc = contextPath + '/images/rally/components/profile-mark-18.png';
 		}
 
@@ -50,9 +49,8 @@ Ext.define('Rally.ui.cardboard.HistoricalCard', {
 				'<div class="leftCardHeader">',
 				'    <a href="{[Rally.util.Navigation.createRallyDetailUrl(values)]}" target="_top">{FormattedID}</a>',
 				'</div>',
-				'<img class="cardOwner" src="{profileImageSrc}">'
-				//,
-				//'<div class="cardOwnerName">{ownerName}</div>'
+				'<img class="cardOwner" src="{profileImageSrc}">',
+				'<div class="cardOwnerName">{ownerName}</div>'
 			),
 			renderData: renderData
 		});

@@ -43,8 +43,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
         params.sort = Ext.JSON.encode(sortObj);
         params.pagesize = 200;
 		
-		var callback = Ext.bind(this.processSnapshots, this);
-		
 		Ext.Ajax.cors = true;
         Ext.Ajax.request({
             url: queryUrl,
@@ -54,25 +52,25 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
             success: function(response){
                 var text = response.responseText;
                 var json = Ext.JSON.decode(text);
-                callback(json.Results);
-            }
+                this.processSnapshots(json.Results);
+            },
+			scope: this
         });
 	},
 	
 	processSnapshots: function(snapshots){
 		var allRecords = [];
 		var ownerOidsMap = {};
-		
+
 		var l = snapshots.length;
 		for(var i=0; i < l; ++i){
 			var snapshot = snapshots[i];
 			allRecords.push( this.convertSnapshotToModel(snapshot) );
-		}
-		
-		/*TODO add owner names
-		var l = snapshots.length;
-		for(var i=0; i < l; ++i){
-			var snapshot = snapshots[i];
+			
+			if(!snapshot.Owner){
+				continue;
+			}
+			
 			// dear reader: I'm sorry, avoiding 0 being falsy
 			var key = ""+snapshot.Owner;
 			var ownerEntry = ownerOidsMap[(key)];
@@ -81,7 +79,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 				ownerOidsMap[key] = ownerEntry
 			}
 			ownerEntry.push(i+1);
-			allRecords.push( this.convertSnapshotToModel(snapshot) );
 		}
 		
 		var ownerOids = [];
@@ -91,51 +88,78 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 			}
 		}
 		
-		var usersFetchedCallback = Ext.bind(function(owners){
-			for(var j=0; j < owners.length; ++j){
-				var user = owners[j];
-				
-				//TODO get username from user obj
-				var ownerName = user.Name;
-				var ownerEntry = ownerOidsMap[""+user.ObjectID];
+		var me = this;
+		var usersFetchedCallback = Ext.bind(function(store, users){
+			for(var j=0; j < users.length; ++j){
+				var user = users[j];
+				var ownerName = user.get('_refObjectName');
+				var ownerEntry = ownerOidsMap[""+user.get('ObjectID')];
 				if(ownerEntry){
 					for(var k=0; k < ownerEntry.length; ++k){
 						var ownerIndex = ownerEntry[k];
 						// compensate for previous addition
-						allRecords[ownerIndex -1].Owner = {
+						allRecords[ownerIndex -1].set('Owner', {
 							Name: ownerName,
-							ObjectID: user.ObjectID;
-						};
+							ObjectID: user.get('ObjectID')
+						});
 					}
 				}				
 			}
 			
 			// we now have all the data and can add the cards
 			this.addCardsWithOwners(allRecords);
-		},
-		this);
+		}, this);
 		
-		//TODO ajax call to get owners from oids, update HistorialCard.getOwnerDataFromRecord()
-		//wsapi.getUsersByOids(ownerOids, usersFetchedCallback)
-	*/
-		//TODO delete when doing the callback
-		this.createAndAddCards(allRecords);
-		this.fireEvent("dataretrieved", this, allRecords);	
+		this.getUsersByOids(ownerOids, usersFetchedCallback);
     },
 	
+	getUsersByOids: function(ownerOids, usersFetchedCallback){
+		if(ownerOids.length == 0){
+			usersFetchedCallback(null, []);
+			return;
+		}
+	
+		var filter = Ext.create('Rally.data.QueryFilter', {
+			 property: 'ObjectID',
+			 value: ownerOids.pop()
+		});
+		
+		Ext.Array.each(ownerOids, function(ownerOid){
+			filter = filter.or({
+				property: 'ObjectID',
+				value: ownerOid
+			});
+		});
+	
+		var userStore = Ext.create('Rally.data.WsapiDataStore', {
+			model: 'User',
+			fetch: ['ObjectID', '_refObjectName'],
+			autoLoad: true,
+			filters: [filter],
+			listeners: {
+				load: usersFetchedCallback,
+				scope: this
+			}
+		});
+	},
+	
 	addCardsWithOwners: function(records){
-		this.createAndAddCards(allRecords);
-		this.fireEvent("dataretrieved", this, allRecords);
+		this.createAndAddCards(records);
+		this.fireEvent("dataretrieved", this, records);
 	},
 	
 	convertSnapshotToModel: function(snapshot){
 		var type = snapshot._Type[snapshot._Type.length-1];
-		
-		var modelData = Ext.apply({}, snapshot);
-		return new this.models[type](modelData);
+		return new this.models[type](snapshot);
 	},
 	
 	addCard: function(card, index) {
+		
+		if(!this.cards){
+			this.cards = [];
+		}
+		this.cards.push(card);
+		
 		if(!this.objectIDToCardMap){
 			this.objectIDToCardMap = {};
 		}

@@ -34,9 +34,15 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	},
 	
 	updateViewDate: function(newViewDate){
+		//this.createAnimationOverlay();
 		this.refresh({
 			viewDate: newViewDate,
 		});
+	},
+	
+	createAnimationOverlay: function() {
+		//var overlay = Ext.getBody.createChild(
+		
 	},
 	
 	refresh: function(newConfig) {
