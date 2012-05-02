@@ -71,6 +71,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 		}, this);
 		
 		overlayEl.setOpacity(1);
+		
 		Ext.each(this.overlay.items.items, function(ocards) {
 			ocards.getEl().setOpacity(1,true);
 		}, this);
@@ -152,6 +153,20 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 				},
 				listeners: {
 					afteranimate: function(){
+						if(cards.oldCard.record.get('Ready') != cards.newCard.record.get('Ready')) {
+							if(cards.newCard.record.get('Ready')) {
+								cards.oldCard.getEl().child(".card").addCls("ready");
+							} else {
+								cards.oldCard.getEl().child(".card").removeCls("ready");
+							}
+						}
+						if(cards.oldCard.record.get('Blocked') != cards.newCard.record.get('Blocked')) {
+							if(cards.newCard.record.get('Blocked')) {
+								cards.oldCard.getEl().child(".card").addCls("blocked");
+							} else {
+								cards.oldCard.getEl().child(".card").removeCls("blocked");
+							}
+						}
 						this.storiesToMove--;
 						if(this.storiesToMove === 0){
 							console.log("moves done");

@@ -18,6 +18,7 @@ Ext.define('CustomApp', {
             style: 'text-align:center',
             border: false,
             height: 60,
+			style: 'margin-left: 170px',
             defaults: {
 				style: 'float:left; margin: 5px 5px'
 			},
