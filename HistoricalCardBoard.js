@@ -45,6 +45,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	createAnimationOverlay: function() {
 		//var overlay = new Ext.Element(document.createElement("div"));
 		this.overlay = Ext.widget('container', {
+			itemId: 'overlay',
 			renderTo: Ext.getBody()
 		});
 		// Ext.getBody().appendChild(overlay.getEl());
@@ -162,9 +163,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	
 	displayNewStories: function(){
 		this.columnsToDisplay = this.columnDefinitions.length;
+		this.storiesToDisplay = {};
 		Ext.each(this.columnDefinitions, function(column) {
 			this.columnsToDisplay--;
-			this.storiesToDisplay = column.cards.length;
+			var columnName = column.getValue();
+			this.storiesToDisplay[columnName] = column.cards.length;
 			Ext.each(column.cards, function(card) {
 				card.animate({
 					duration: 1000,
@@ -173,9 +176,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 					},
 					listeners: {
 						afteranimate: function(){
-							this.storiesToDisplay--;
-							if(this.columnsToDisplay === 0 && this.storiesToDisplay === 0){
-								Ext.getBody().remove(this.overlay);
+							this.storiesToDisplay[columnName]--;
+							if(this.columnsToDisplay === 0 && this.storiesToDisplay[columnName] === 0){
+								console.log("displayed new stories");
+								Ext.destroy(this.overlay);
+								delete this.overlay;
 							}
 						},
 						scope: this
