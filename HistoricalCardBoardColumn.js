@@ -108,6 +108,12 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 			
 			// we now have all the data and can add the cards
 			this.addCardsWithOwners(allRecords);
+			
+			this.parentCardboard.stillToLoad--;
+			if(this.parentCardboard.stillToLoad === 0){
+				this.parentCardboard.animateDelta();
+			}
+			
 		}, this);
 		
 		this.getUsersByOids(ownerOids, usersFetchedCallback);
@@ -153,20 +159,51 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 		return new this.models[type](snapshot);
 	},
 	
+	createAndAddCard: function(record, index) {
+		if(this.isMatchingRecord(record)) {
+			var config = Ext.applyIf({
+				 record: record
+			}, this.cardConfig);
+			
+			if(this.startHidden){
+				config.style = 'opacity: 0';
+			}
+			var card = Ext.widget(config.xtype, config);
+
+			this.addCard(card, index);
+		}
+	},
+	
 	addCard: function(card, index) {
 		
 		if(!this.cards){
 			this.cards = [];
+			this.objectIDToCardMap = {};
 		}
+		
 		this.cards.push(card);
+		var key = ""+ card.record.get('ObjectID');
+		this.objectIDToCardMap[key] = card;
 		
 		if(!this.objectIDToCardMap){
 			this.objectIDToCardMap = {};
 		}
 		
 		this.callParent(arguments);
-		
+
 		var key = ""+ card.record.get('ObjectID');
 		this.objectIDToCardMap[key] = card;
-	}
+		
+		card.posBox = card.getEl().getBox();
+		
+		// card.getEl().on('mouseover', function(){
+			// console.log('x,y ='+ card.getEl().getX());
+		// });
+	},
+	
+	refresh: function(newConfig) {
+		this.callParent(arguments);
+		this.cards = [];
+		this.objectIDToCardMap = {};
+	},
 });
