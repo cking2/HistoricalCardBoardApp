@@ -61,21 +61,72 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 	
 	processSnapshots: function(snapshots){
 		var allRecords = [];
+		var ownerOidsMap = {};
 		
 		var l = snapshots.length;
 		for(var i=0; i < l; ++i){
 			var snapshot = snapshots[i];
 			allRecords.push( this.convertSnapshotToModel(snapshot) );
 		}
+		
+		/*TODO add owner names
+		var l = snapshots.length;
+		for(var i=0; i < l; ++i){
+			var snapshot = snapshots[i];
+			// dear reader: I'm sorry, avoiding 0 being falsy
+			var key = ""+snapshot.Owner;
+			var ownerEntry = ownerOidsMap[(key)];
+			if(!ownerEntry){
+				ownerEntry = [];
+				ownerOidsMap[key] = ownerEntry
+			}
+			ownerEntry.push(i+1);
+			allRecords.push( this.convertSnapshotToModel(snapshot) );
+		}
+		
+		var ownerOids = [];
+		for(var field in ownerOidsMap){
+			if(ownerOidsMap.hasOwnProperty(field)){
+				ownerOids.push(field);
+			}
+		}
+		
+		var usersFetchedCallback = Ext.bind(function(owners){
+			for(var j=0; j < owners.length; ++j){
+				var user = owners[j];
+				
+				//TODO get username from user obj
+				var ownerName = user.Name;
+				var ownerEntry = ownerOidsMap[""+user.ObjectID];
+				if(ownerEntry){
+					for(var k=0; k < ownerEntry.length; ++k){
+						var ownerIndex = ownerEntry[k];
+						// compensate for previous addition
+						allRecords[ownerIndex -1].Owner = {
+							Name: ownerName,
+							ObjectID: user.ObjectID;
+						};
+					}
+				}				
+			}
+			
+			// we now have all the data and can add the cards
+			this.addCardsWithOwners(allRecords);
+		},
+		this);
+		
+		//TODO ajax call to get owners from oids, update HistorialCard.getOwnerDataFromRecord()
+		//wsapi.getUsersByOids(ownerOids, usersFetchedCallback)
+	*/
+		//TODO delete when doing the callback
+		this.createAndAddCards(allRecords);
+		this.fireEvent("dataretrieved", this, allRecords);	
+    },
 	
+	addCardsWithOwners: function(records){
 		this.createAndAddCards(allRecords);
 		this.fireEvent("dataretrieved", this, allRecords);
-
-		Ext.create('Rally.ui.cardboard.ColumnDropTarget', this.getDndContainer().getEl(), {
-			ddGroup:this.ddGroup,
-			column: this
-		});
-    },
+	},
 	
 	convertSnapshotToModel: function(snapshot){
 		var type = snapshot._Type[snapshot._Type.length-1];
