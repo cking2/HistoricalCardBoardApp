@@ -88,7 +88,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	},
 	
 	animateDelta: function() {
-	debugger;
 		if(!this.overlay){
 			return;
 		}

@@ -53,6 +53,14 @@ Ext.define('CustomApp', {
     	var startDate = this.getStartDate();
     	var endDate = this.down('#endDateField').getValue();
     	this.currentDate = endDate;
+    	
+    	var startDateField = this.down('#startDateField');
+		startDateField.on('blur', this.onStartDateChange, this);
+		startDateField.on('select', this.onStartDateChange, this);
+		
+		var endDateField = this.down('#endDateField');
+		endDateField.on('blur', this.onEndDateChange, this);
+		endDateField.on('select', this.onEndDateChange, this);
     
     	var noDays = Rally.util.DateTime.getDifference(endDate, startDate, 'day');
     	var app = this;
@@ -89,8 +97,29 @@ Ext.define('CustomApp', {
 		});
     },
     
+    onStartDateChange: function(){
+    	var newStart = this.getStartDate();
+    	var newEnd = Rally.util.DateTime.add(newStart, "day", 10);
+    	this.down('#endDateField').setValue(newEnd);
+    	var newDate = this.getDateSliderValue();
+    	this.setCurrentDate(newDate);
+    },
+    
+    onEndDateChange: function(){
+    	var newEnd = this.getEndDate();
+    	var newStart = Rally.util.DateTime.add(newEnd, "day", -10);
+    	this.down('#startDateField').setValue(newStart);
+    	
+    	var newDate = this.getDateSliderValue();
+    	this.setCurrentDate(newDate);
+    },
+    
     getStartDate: function(){
     	return this.down('#startDateField').getValue();
+    },
+    
+    getEndDate: function(){
+    	return this.down('#endDateField').getValue();
     },
     
     setCurrentDate: function(newDate){
