@@ -9,8 +9,8 @@ Ext.define('CustomApp', {
     	{
     		xtype: 'component',
     		itemId: 'titleDate',
-    		html: '<h1>Current Date: '+ Rally.util.DateTime.format(new Date(), "Y-m-d\\Th:i T(P)") +'</h1>',
-    		style: 'text-align:center; font-size: 24px; margin: 10px 10px'
+    		html: '<h1>Current Date: '+ Rally.util.DateTime.format(new Date(), "m/d/Y T(P)") +'</h1>',
+    		style: 'text-align:center; font-size: 24px; margin: 10px 10px; color:#333333'
     	},
         {
             xtype: 'container',
@@ -129,7 +129,7 @@ Ext.define('CustomApp', {
     },
     
     setTitleDate: function(date){
-    	var title = '<h1>Current Date: '+ Rally.util.DateTime.format(date, "Y-m-d\\Th:i T(P)") +'</h1>';
+    	var title = '<h1>Current Date: '+ Rally.util.DateTime.format(date, "m/d/Y T(P)") +'</h1>';
     	this.down('#titleDate').update(title);
     },
     
