@@ -45,7 +45,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	createAnimationOverlay: function() {
 		//var overlay = new Ext.Element(document.createElement("div"));
 		this.overlay = Ext.widget('container', {
-			itemId: 'overlay',
 			renderTo: Ext.getBody()
 		});
 		// Ext.getBody().appendChild(overlay.getEl());
@@ -71,7 +70,10 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 			}, this);
 		}, this);
 		
-		overlayEl.setOpacity(1, true);
+		overlayEl.setOpacity(1);
+		Ext.each(this.overlay.items.items, function(ocards) {
+			ocards.getEl().setOpacity(1,true);
+		}, this);
 	},
 	
 	getColumnByName: function(columnName) {
@@ -85,6 +87,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	},
 	
 	animateDelta: function() {
+	debugger;
 		if(!this.overlay){
 			return;
 		}
