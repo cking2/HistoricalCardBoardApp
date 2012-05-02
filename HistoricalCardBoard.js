@@ -8,12 +8,13 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 		cfg = Ext.applyIf(cfg, {
 			viewDate: "current"
 		});
-		
+
 		var columnCfg = {
 			xtype: 'historicalcardboardcolumn',
 			displayField: 'Name',
 			valueField: 'ObjectID',
-			viewDate: cfg.viewDate
+			viewDate: cfg.viewDate,
+			parentCardboard: this
 		};
 		
 		cfg.columnConfig = Ext.merge(columnCfg, cfg.columnConfig);
@@ -34,15 +35,154 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	},
 	
 	updateViewDate: function(newViewDate){
-		//this.createAnimationOverlay();
+		this.createAnimationOverlay();
 		this.refresh({
 			viewDate: newViewDate,
+			startHidden: true
 		});
 	},
 	
 	createAnimationOverlay: function() {
-		//var overlay = Ext.getBody.createChild(
+		//var overlay = new Ext.Element(document.createElement("div"));
+		this.overlay = Ext.widget('container', {
+			renderTo: Ext.getBody()
+		});
+		// Ext.getBody().appendChild(overlay.getEl());
+		var overlayEl = this.overlay.getEl();
+		overlayEl.setOpacity(0);
+		overlayEl.setStyle("position", "absolute");
+		overlayEl.addCls("cardboard");
+		overlayEl.setSize(this.getWidth(), this.getHeight());
+		overlayEl.setLeft(this.getEl().getX());
+		overlayEl.setTop(this.getEl().getY());
+		overlayEl.setStyle("z-index", "1");
+		//overlayEl.setStyle("background-color", "blue");
+		Ext.each(this.columnDefinitions, function(column) {
+			Ext.each(column.cards, function(card) {
+				var oldCardConfig = card.config;
+				var newCard = Ext.widget(oldCardConfig.xtype, oldCardConfig);
+				//var newCard = Ext.clone(card.getEl());
+				//overlayEl.appendChild(newCard.getEl());
+				this.overlay.add(newCard);
+				var newCardEl = newCard.getEl();
+				newCardEl.setStyle("position", "absolute");
+				newCardEl.setBox(card.posBox);
+			}, this);
+		}, this);
 		
+		overlayEl.setOpacity(1, true);
+	},
+	
+	getColumnByName: function(columnName) {
+		Ext.Array.each(this.columnDefinitions, function(column){
+			if(column.getValue() === columnName){
+				return column;
+			}
+		});
+		
+		return null;
+	},
+	
+	animateDelta: function() {
+		if(!this.overlay){
+			return;
+		}
+	
+		var toDelete = [];
+		var toMove = [];
+	
+		Ext.each(this.overlay.items.items, function(ovCard) {
+			var objectID = ovCard.record.get('ObjectID');
+			var key = ""+ objectID;
+			var found = false;
+			// try to find old card in new data
+			for(var i=0; i < this.columnDefinitions.length; ++i){
+				var column = this.columnDefinitions[i];
+				var newCard = column.objectIDToCardMap[key];
+				if(newCard){
+					found = true;
+					var moveRecord = {
+						oldCard: ovCard,
+						newCard: newCard
+					}; 
+					toMove.push(moveRecord);
+					break;
+				}
+			}
+			
+			if(!found){
+				toDelete.push(ovCard);
+			}
+			
+		}, this);
+		
+		this.storiesToDelete = toDelete.length;
+		Ext.each(toDelete, function(card) {
+			card.animate({
+				to: {
+					opacity: 0
+				},
+				listeners: {
+					afteranimate: function(){
+						this.storiesToDelete--;
+						if(this.storiesToDelete === 0){
+							console.log("deletes done");
+							this.moveOldStories(toMove);
+						}
+					}, 
+					scope: this
+				}
+			});	
+		}, this);
+		
+	},
+	
+	moveOldStories: function(toMove){
+		this.storiesToMove = toMove.length;
+		Ext.each(toMove, function(cards) {
+			cards.oldCard.animate({
+				duration: 1000,
+				to: {
+					x: cards.newCard.posBox.x,
+					y: cards.newCard.posBox.y
+				},
+				listeners: {
+					afteranimate: function(){
+						this.storiesToMove--;
+						if(this.storiesToMove === 0){
+							console.log("moves done");
+							this.displayNewStories();
+						}
+					}, 
+					scope: this
+				}
+			});
+		}, this);
+	},
+	
+	displayNewStories: function(){
+		this.columnsToDisplay = this.columnDefinitions.length;
+		Ext.each(this.columnDefinitions, function(column) {
+			this.columnsToDisplay--;
+			this.storiesToDisplay = column.cards.length;
+			Ext.each(column.cards, function(card) {
+				card.animate({
+					duration: 1000,
+					to: {
+						opacity: 1
+					},
+					listeners: {
+						afteranimate: function(){
+							this.storiesToDisplay--;
+							if(this.columnsToDisplay === 0 && this.storiesToDisplay === 0){
+								Ext.getBody().remove(this.overlay);
+							}
+						},
+						scope: this
+					}
+				});
+			}, this);
+		}, this);
 	},
 	
 	refresh: function(newConfig) {
@@ -50,9 +190,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 		Ext.merge(this, newConfig);
 		if(newConfig.viewDate){
 			this.columnConfig.viewDate = newConfig.viewDate;
+			this.columnConfig.startHidden = newConfig.startHidden;
 		}
 
 		//get the data again
+		this.stillToLoad = this.columnDefinitions.length;
 		if (newConfig && (newConfig.types || newConfig.attribute || newConfig.columns)) {
 			Ext.each(this.columnDefinitions, function(column) {
 				column.destroy();
@@ -63,10 +205,17 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 				var newColumnConfig = {storeConfig: this.storeConfig };
 				if(newConfig.viewDate){
 					newColumnConfig.viewDate = newConfig.viewDate;
+					newColumnConfig.startHidden = newConfig.startHidden;
 				}
 				column.refresh(newColumnConfig);
 			}, this);
 		}
+		
+	},
+	
+	_parseColumns: function(models) {
+		this.callParent(arguments);
+		this.stillToLoad = this.columnDefinitions.length;
 	},
 	
 	_addColumn: function(column) {
@@ -79,6 +228,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 			enableCrossColumnRanking: this.enableCrossColumnRanking,
 			enableRanking: this.enableRanking,
 			viewDate: this.viewDate,
+			startHidden: this.startHidden,
 			listeners: {
 				aftercarddroppedsave: this._onAfterCardDroppedSave,
 				ready: this._onColumnReady,
