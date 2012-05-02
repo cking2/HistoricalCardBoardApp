@@ -45,7 +45,7 @@ Ext.define('CustomApp', {
 			columnConfig: {
 				appContext : this.context
 			},
-			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" }, { value: "Released" } ]
+			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" } ]
 		});
 	
         var button = this.down('#renderButton');

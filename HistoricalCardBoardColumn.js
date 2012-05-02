@@ -133,5 +133,19 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 		
 		var modelData = Ext.apply({}, snapshot);
 		return new this.models[type](modelData);
+	},
+	
+	addCard: function(card, index) {
+		if(!this.objectIDToCardMap){
+			this.objectIDToCardMap = {};
+		}
+		
+		this.callParent(arguments);
+		
+		var key = ""+ card.record.get('ObjectID');
+		this.objectIDToCardMap[key] = card;
+		
+		var el = card.getEl();
+		el.on('mouseover', function(){ console.log(el.getXY()); });
 	}
 });
