@@ -41,13 +41,18 @@ Ext.define('Rally.ui.cardboard.HistoricalCard', {
 	buildHeader: function(){
 		var renderData = this.getOwnerDataFromRecord(this.getRecord());
 		Ext.applyIf(renderData, this.getRecord().data);
+		var types = this.getRecord().get('_Type');
+		var type = types[types.length -1];
+		var objectID = this.getRecord().get('ObjectID');
+		var server = Rally.environment.getServer();
+		renderData.artifactRef = server.getWsapiUrl() +'/'+ type +'/'+ objectID;
 
 		return Ext.widget('container', {
 			itemId: 'cardHeader',
 			cls: 'cardHeader',
 			renderTpl: Ext.create('Ext.XTemplate',
 				'<div class="leftCardHeader">',
-				'    <a href="{[Rally.util.Navigation.createRallyDetailUrl(values)]}" target="_top">{FormattedID}</a>',
+				'    <a href="{[Rally.util.Navigation.createRallyDetailUrl(values.artifactRef)]}" target="_top">Details</a>',
 				'</div>',
 				'<img class="cardOwner" src="{profileImageSrc}">',
 				'<div class="cardOwnerName">{ownerName}</div>'
