@@ -92,6 +92,12 @@ Ext.define('CustomApp', {
     	return this.down('#startDateField').getValue();
     },
     
+    setCurrentDate: function(newDate){
+    	this.currentDate = newDate;
+    	this.setTitleDate(newDate);
+    	this.down('#cardboard').updateViewDate(newDate);
+    },
+    
     setTitleDate: function(date){
     	var title = '<h1>Current Date: '+ Rally.util.DateTime.format(date, "Y-m-d\\Th:i T(P)") +'</h1>';
     	this.down('#titleDate').update(title);
@@ -105,8 +111,6 @@ Ext.define('CustomApp', {
     
     onDateChanged: function(slider, newTickCount){
     	var newDate = this.getDateSliderValue();
-    	this.currentDate = newDate;
-    	this.setTitleDate(newDate);
-    	this.down('#cardboard').updateViewDate(newDate);
+    	this.setCurrentDate(newDate);
     }
 });
