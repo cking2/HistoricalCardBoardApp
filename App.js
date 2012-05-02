@@ -39,6 +39,11 @@ Ext.define('CustomApp', {
                     itemId: 'endDateField',
                     width: 100,
                     value: new Date()
+                },
+                {
+                	xtype: 'rallybutton',
+                	itemId: 'playButton',
+                	text: 'Play'
                 }
             ]
         },
@@ -61,8 +66,10 @@ Ext.define('CustomApp', {
 		var endDateField = this.down('#endDateField');
 		endDateField.on('blur', this.onEndDateChange, this);
 		endDateField.on('select', this.onEndDateChange, this);
+		
+		this.down('#playButton').on('click', this.playClicked, this);
     
-    	var noDays = Rally.util.DateTime.getDifference(endDate, startDate, 'day');
+    	this.noDays = Rally.util.DateTime.getDifference(endDate, startDate, 'day');
     	var app = this;
     
     	this.down('#sliderHolder').add({
@@ -72,8 +79,8 @@ Ext.define('CustomApp', {
 			width: 700,
 			increment: 1,
 			minValue: 0,
-			maxValue: noDays,
-			value: noDays,
+			maxValue: this.noDays,
+			value: this.noDays,
 			tipText: function(thumb){
 				var tickerDate = Rally.util.DateTime.add(app.getStartDate(), "day", thumb.value);
 				return Ext.String.format('<b>{0}</b>',  Rally.util.DateTime.format(tickerDate, "m/d/Y"));
@@ -97,12 +104,39 @@ Ext.define('CustomApp', {
 		});
     },
     
+    playClicked: function(){
+    	if(this.playTimer){
+    		clearTimeout(this.playTimer);
+    		delete this.playTimer;
+    	}
+    	else{
+    		var boundNextTick = Ext.bind(this.nextTick, this);
+    	
+    		// reset the slider to 0
+	    	this.down('#dateSlider').setValue(0);
+	    	this.playTimer = setTimeout(boundNextTick, 6000);
+    	}
+    },
+    
+    nextTick: function(){
+    	var boundNextTick = Ext.bind(this.nextTick, this);
+    
+    	var current = this.down('#dateSlider').getValue();
+    	var nextVal = current +1;
+
+    	if(nextVal <= this.noDays){
+	    	this.down('#dateSlider').setValue(nextVal);
+	    	this.playTimer = setTimeout(boundNextTick, 6000);
+	    }else{
+	    	delete this.playTimer;
+	    }
+    },
+    
     onStartDateChange: function(){
     	var newStart = this.getStartDate();
     	var newEnd = Rally.util.DateTime.add(newStart, "day", 10);
     	this.down('#endDateField').setValue(newEnd);
-    	var newDate = this.getDateSliderValue();
-    	this.setCurrentDate(newDate);
+    	this.down('#dateSlider').setValue(0);
     },
     
     onEndDateChange: function(){
@@ -110,8 +144,7 @@ Ext.define('CustomApp', {
     	var newStart = Rally.util.DateTime.add(newEnd, "day", -10);
     	this.down('#startDateField').setValue(newStart);
     	
-    	var newDate = this.getDateSliderValue();
-    	this.setCurrentDate(newDate);
+    	this.down('#dateSlider').setValue(this.noDays);
     },
     
     getStartDate: function(){
