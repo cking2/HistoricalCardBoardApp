@@ -38,12 +38,11 @@
             		var ownerData = {};
             		var contextPath = Rally.environment.getServer().getContextUrl();
             		if (record.get('Owner')) {
-            			ownerData.profileImageSrc = contextPath + '/profile/viewThumbnailImage.sp?tSize=20&uid=' + record.get('Owner');
-            			
-            			//TODO get owner name somehow (maybe async?)
-            			//ownerData.ownerName = record.get('Owner')._refObjectName;
+            			var owner = record.get('Owner');
+            			ownerData.profileImageSrc = contextPath + '/profile/viewThumbnailImage.sp?tSize=20&uid=' + owner.ObjectID;
+            			ownerData.ownerName = owner.Name;
             		} else {
-            			//ownerData.ownerName = 'No Owner';
+            			ownerData.ownerName = 'No Owner';
             			ownerData.profileImageSrc = contextPath + '/images/rally/components/profile-mark-18.png';
             		}
             
@@ -53,17 +52,21 @@
             	buildHeader: function(){
             		var renderData = this.getOwnerDataFromRecord(this.getRecord());
             		Ext.applyIf(renderData, this.getRecord().data);
+            		var types = this.getRecord().get('_Type');
+            		var type = types[types.length -1];
+            		var objectID = this.getRecord().get('ObjectID');
+            		var server = Rally.environment.getServer();
+            		renderData.artifactRef = server.getWsapiUrl() +'/'+ type +'/'+ objectID;
             
             		return Ext.widget('container', {
             			itemId: 'cardHeader',
             			cls: 'cardHeader',
             			renderTpl: Ext.create('Ext.XTemplate',
             				'<div class="leftCardHeader">',
-            				'    <a href="{[Rally.util.Navigation.createRallyDetailUrl(values)]}" target="_top">{FormattedID}</a>',
+            				'    <a href="{[Rally.util.Navigation.createRallyDetailUrl(values.artifactRef)]}" target="_top">Details</a>',
             				'</div>',
-            				'<img class="cardOwner" src="{profileImageSrc}">'
-            				//,
-            				//'<div class="cardOwnerName">{ownerName}</div>'
+            				'<img class="cardOwner" src="{profileImageSrc}">',
+            				'<div class="cardOwnerName">{ownerName}</div>'
             			),
             			renderData: renderData
             		});
@@ -115,8 +118,6 @@
                     params.sort = Ext.JSON.encode(sortObj);
                     params.pagesize = 200;
             		
-            		var callback = Ext.bind(this.processSnapshots, this);
-            		
             		Ext.Ajax.cors = true;
                     Ext.Ajax.request({
                         url: queryUrl,
@@ -126,35 +127,160 @@
                         success: function(response){
                             var text = response.responseText;
                             var json = Ext.JSON.decode(text);
-                            callback(json.Results);
-                        }
+                            this.processSnapshots(json.Results);
+                        },
+            			scope: this
                     });
             	},
             	
             	processSnapshots: function(snapshots){
             		var allRecords = [];
-            		
+            		var ownerOidsMap = {};
+            
             		var l = snapshots.length;
             		for(var i=0; i < l; ++i){
             			var snapshot = snapshots[i];
             			allRecords.push( this.convertSnapshotToModel(snapshot) );
+            			
+            			if(!snapshot.Owner){
+            				continue;
+            			}
+            			
+            			// dear reader: I'm sorry, avoiding 0 being falsy
+            			var key = ""+snapshot.Owner;
+            			var ownerEntry = ownerOidsMap[(key)];
+            			if(!ownerEntry){
+            				ownerEntry = [];
+            				ownerOidsMap[key] = ownerEntry
+            			}
+            			ownerEntry.push(i+1);
+            		}
+            		
+            		var ownerOids = [];
+            		for(var field in ownerOidsMap){
+            			if(ownerOidsMap.hasOwnProperty(field)){
+            				ownerOids.push(field);
+            			}
+            		}
+            		
+            		var me = this;
+            		var usersFetchedCallback = Ext.bind(function(store, users){
+            			for(var j=0; j < users.length; ++j){
+            				var user = users[j];
+            				var ownerName = user.get('_refObjectName');
+            				var ownerEntry = ownerOidsMap[""+user.get('ObjectID')];
+            				if(ownerEntry){
+            					for(var k=0; k < ownerEntry.length; ++k){
+            						var ownerIndex = ownerEntry[k];
+            						// compensate for previous addition
+            						allRecords[ownerIndex -1].set('Owner', {
+            							Name: ownerName,
+            							ObjectID: user.get('ObjectID')
+            						});
+            					}
+            				}				
+            			}
+            			
+            			// we now have all the data and can add the cards
+            			this.addCardsWithOwners(allRecords);
+            			
+            			this.parentCardboard.stillToLoad--;
+            			if(this.parentCardboard.stillToLoad === 0){
+            				this.parentCardboard.animateDelta();
+            			}
+            			
+            		}, this);
+            		
+            		this.getUsersByOids(ownerOids, usersFetchedCallback);
+                },
+            	
+            	getUsersByOids: function(ownerOids, usersFetchedCallback){
+            		if(ownerOids.length == 0){
+            			usersFetchedCallback(null, []);
+            			return;
             		}
             	
-            		this.createAndAddCards(allRecords);
-            		this.fireEvent("dataretrieved", this, allRecords);
-            
-            		Ext.create('Rally.ui.cardboard.ColumnDropTarget', this.getDndContainer().getEl(), {
-            			ddGroup:this.ddGroup,
-            			column: this
+            		var filter = Ext.create('Rally.data.QueryFilter', {
+            			 property: 'ObjectID',
+            			 value: ownerOids.pop()
             		});
-                },
+            		
+            		Ext.Array.each(ownerOids, function(ownerOid){
+            			filter = filter.or({
+            				property: 'ObjectID',
+            				value: ownerOid
+            			});
+            		});
+            	
+            		var userStore = Ext.create('Rally.data.WsapiDataStore', {
+            			model: 'User',
+            			fetch: ['ObjectID', '_refObjectName'],
+            			autoLoad: true,
+            			filters: [filter],
+            			listeners: {
+            				load: usersFetchedCallback,
+            				scope: this
+            			}
+            		});
+            	},
+            	
+            	addCardsWithOwners: function(records){
+            		this.createAndAddCards(records);
+            		this.fireEvent("dataretrieved", this, records);
+            	},
             	
             	convertSnapshotToModel: function(snapshot){
             		var type = snapshot._Type[snapshot._Type.length-1];
+            		return new this.models[type](snapshot);
+            	},
+            	
+            	createAndAddCard: function(record, index) {
+            		if(this.isMatchingRecord(record)) {
+            			var config = Ext.applyIf({
+            				 record: record
+            			}, this.cardConfig);
+            			
+            			if(this.startHidden){
+            				config.style = 'opacity: 0';
+            			}
+            			var card = Ext.widget(config.xtype, config);
+            
+            			this.addCard(card, index);
+            		}
+            	},
+            	
+            	addCard: function(card, index) {
             		
-            		var modelData = Ext.apply({}, snapshot);
-            		return new this.models[type](modelData);
-            	}
+            		if(!this.cards){
+            			this.cards = [];
+            			this.objectIDToCardMap = {};
+            		}
+            		
+            		this.cards.push(card);
+            		var key = ""+ card.record.get('ObjectID');
+            		this.objectIDToCardMap[key] = card;
+            		
+            		if(!this.objectIDToCardMap){
+            			this.objectIDToCardMap = {};
+            		}
+            		
+            		this.callParent(arguments);
+            
+            		var key = ""+ card.record.get('ObjectID');
+            		this.objectIDToCardMap[key] = card;
+            		
+            		card.posBox = card.getEl().getBox();
+            		
+            		// card.getEl().on('mouseover', function(){
+            			// console.log('x,y ='+ card.getEl().getX());
+            		// });
+            	},
+            	
+            	refresh: function(newConfig) {
+            		this.callParent(arguments);
+            		this.cards = [];
+            		this.objectIDToCardMap = {};
+            	},
             });            Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
                 extend: 'Rally.ui.cardboard.CardBoard',
                 componentCls: 'historical-cardboard',
@@ -165,12 +291,13 @@
             		cfg = Ext.applyIf(cfg, {
             			viewDate: "current"
             		});
-            		
+            
             		var columnCfg = {
             			xtype: 'historicalcardboardcolumn',
             			displayField: 'Name',
             			valueField: 'ObjectID',
-            			viewDate: cfg.viewDate
+            			viewDate: cfg.viewDate,
+            			parentCardboard: this
             		};
             		
             		cfg.columnConfig = Ext.merge(columnCfg, cfg.columnConfig);
@@ -182,12 +309,240 @@
             		});
             		
             		cfg = Ext.apply(cfg, {
-            			enableCrossColumnRanking : false,
-            			enableRanking: false,
+            			//enableCrossColumnRanking : false,
+            			//enableRanking: false,
             			readOnly: true
             		});
             		
             		this.callParent([cfg]);
+            	},
+            	
+            	updateViewDate: function(newViewDate){
+            		this.createAnimationOverlay();
+            		this.refresh({
+            			viewDate: newViewDate,
+            			startHidden: true
+            		});
+            	},
+            	
+            	createAnimationOverlay: function() {
+            		//var overlay = new Ext.Element(document.createElement("div"));
+            		this.overlay = Ext.widget('container', {
+            			renderTo: Ext.getBody()
+            		});
+            		// Ext.getBody().appendChild(overlay.getEl());
+            		var overlayEl = this.overlay.getEl();
+            		overlayEl.setOpacity(0);
+            		overlayEl.setStyle("position", "absolute");
+            		overlayEl.addCls("cardboard");
+            		overlayEl.setSize(this.getWidth(), this.getHeight());
+            		overlayEl.setLeft(this.getEl().getX());
+            		overlayEl.setTop(this.getEl().getY());
+            		overlayEl.setStyle("z-index", "1");
+            		//overlayEl.setStyle("background-color", "blue");
+            		Ext.each(this.columnDefinitions, function(column) {
+            			Ext.each(column.cards, function(card) {
+            				var oldCardConfig = card.config;
+            				var newCard = Ext.widget(oldCardConfig.xtype, oldCardConfig);
+            				//var newCard = Ext.clone(card.getEl());
+            				//overlayEl.appendChild(newCard.getEl());
+            				this.overlay.add(newCard);
+            				var newCardEl = newCard.getEl();
+            				newCardEl.setStyle("position", "absolute");
+            				newCardEl.setBox(card.posBox);
+            			}, this);
+            		}, this);
+            		
+            		overlayEl.setOpacity(1);
+            		
+            		Ext.each(this.overlay.items.items, function(ocards) {
+            			ocards.getEl().setOpacity(1);
+            		}, this);
+            	},
+            	
+            	getColumnByName: function(columnName) {
+            		Ext.Array.each(this.columnDefinitions, function(column){
+            			if(column.getValue() === columnName){
+            				return column;
+            			}
+            		});
+            		
+            		return null;
+            	},
+            	
+            	animateDelta: function() {
+            		if(!this.overlay){
+            			return;
+            		}
+            	
+            		var toDelete = [];
+            		var toMove = [];
+            	
+            		Ext.each(this.overlay.items.items, function(ovCard) {
+            			var objectID = ovCard.record.get('ObjectID');
+            			var key = ""+ objectID;
+            			var found = false;
+            			// try to find old card in new data
+            			for(var i=0; i < this.columnDefinitions.length; ++i){
+            				var column = this.columnDefinitions[i];
+            				var newCard = column.objectIDToCardMap[key];
+            				if(newCard){
+            					found = true;
+            					var moveRecord = {
+            						oldCard: ovCard,
+            						newCard: newCard
+            					}; 
+            					toMove.push(moveRecord);
+            					break;
+            				}
+            			}
+            			
+            			if(!found){
+            				toDelete.push(ovCard);
+            			}
+            			
+            		}, this);
+            		
+            		this.storiesToDelete = toDelete.length;
+            		Ext.each(toDelete, function(card) {
+            			card.animate({
+            				to: {
+            					opacity: 0
+            				},
+            				listeners: {
+            					afteranimate: function(){
+            						this.storiesToDelete--;
+            						if(this.storiesToDelete === 0){
+            							console.log("deletes done");
+            							this.moveOldStories(toMove);
+            						}
+            					}, 
+            					scope: this
+            				}
+            			});	
+            		}, this);
+            		
+            	},
+            	
+            	moveOldStories: function(toMove){
+            		this.storiesToMove = toMove.length;
+            		Ext.each(toMove, function(cards) {
+            			cards.oldCard.animate({
+            				duration: 1000,
+            				to: {
+            					x: cards.newCard.posBox.x,
+            					y: cards.newCard.posBox.y
+            				},
+            				listeners: {
+            					afteranimate: function(){
+            						if(cards.oldCard.record.get('Ready') != cards.newCard.record.get('Ready')) {
+            							if(cards.newCard.record.get('Ready')) {
+            								cards.oldCard.getEl().child(".card").addCls("ready");
+            							} else {
+            								cards.oldCard.getEl().child(".card").removeCls("ready");
+            							}
+            						}
+            						if(cards.oldCard.record.get('Blocked') != cards.newCard.record.get('Blocked')) {
+            							if(cards.newCard.record.get('Blocked')) {
+            								cards.oldCard.getEl().child(".card").addCls("blocked");
+            							} else {
+            								cards.oldCard.getEl().child(".card").removeCls("blocked");
+            							}
+            						}
+            						this.storiesToMove--;
+            						if(this.storiesToMove === 0){
+            							console.log("moves done");
+            							this.displayNewStories();
+            						}
+            					}, 
+            					scope: this
+            				}
+            			});
+            		}, this);
+            	},
+            	
+            	displayNewStories: function(){
+            		this.columnsToDisplay = this.columnDefinitions.length;
+            		this.storiesToDisplay = {};
+            		Ext.each(this.columnDefinitions, function(column) {
+            			this.columnsToDisplay--;
+            			var columnName = column.getValue();
+            			this.storiesToDisplay[columnName] = column.cards.length;
+            			Ext.each(column.cards, function(card) {
+            				card.animate({
+            					duration: 1000,
+            					to: {
+            						opacity: 1
+            					},
+            					listeners: {
+            						afteranimate: function(){
+            							this.storiesToDisplay[columnName]--;
+            							if(this.columnsToDisplay === 0 && this.storiesToDisplay[columnName] === 0){
+            								console.log("displayed new stories");
+            								Ext.destroy(this.overlay);
+            								delete this.overlay;
+            							}
+            						},
+            						scope: this
+            					}
+            				});
+            			}, this);
+            		}, this);
+            	},
+            	
+            	refresh: function(newConfig) {
+            		//update the config
+            		Ext.merge(this, newConfig);
+            		if(newConfig.viewDate){
+            			this.columnConfig.viewDate = newConfig.viewDate;
+            			this.columnConfig.startHidden = newConfig.startHidden;
+            		}
+            
+            		//get the data again
+            		this.stillToLoad = this.columnDefinitions.length;
+            		if (newConfig && (newConfig.types || newConfig.attribute || newConfig.columns)) {
+            			Ext.each(this.columnDefinitions, function(column) {
+            				column.destroy();
+            			});
+            			this._retrieveModels(this._parseColumns);
+            		} else {
+            			Ext.each(this.columnDefinitions, function(column) {
+            				var newColumnConfig = {storeConfig: this.storeConfig };
+            				if(newConfig.viewDate){
+            					newColumnConfig.viewDate = newConfig.viewDate;
+            					newColumnConfig.startHidden = newConfig.startHidden;
+            				}
+            				column.refresh(newColumnConfig);
+            			}, this);
+            		}
+            		
+            	},
+            	
+            	_parseColumns: function(models) {
+            		this.callParent(arguments);
+            		this.stillToLoad = this.columnDefinitions.length;
+            	},
+            	
+            	_addColumn: function(column) {
+            		var config = Ext.applyIf(column, this.columnConfig);
+            		Ext.apply(config, {
+            			cardConfig: this.cardConfig,
+            			types: this.types,
+            			attribute: this.attribute,
+            			storeConfig: this.storeConfig,
+            			enableCrossColumnRanking: this.enableCrossColumnRanking,
+            			enableRanking: this.enableRanking,
+            			viewDate: this.viewDate,
+            			startHidden: this.startHidden,
+            			listeners: {
+            				aftercarddroppedsave: this._onAfterCardDroppedSave,
+            				ready: this._onColumnReady,
+            				scope: this
+            			},
+            			ddGroup: this.ddGroup
+            		});
+            
+            		this.columnDefinitions.push(Ext.widget(config.xtype, config));
             	},
             });
             Ext.define('CustomApp', {
@@ -198,38 +553,91 @@
                     align: 'stretch'
                 },
                 items:[
-            		/* 
+                	{
+                		xtype: 'component',
+                		itemId: 'titleDate',
+                		html: '<h1>Current Date: '+ Rally.util.DateTime.format(new Date(), "m/d/Y T(P)") +'</h1>',
+                		style: 'text-align:center; font-size: 24px; margin: 10px 10px; color:#333333'
+                	},
                     {
-                        xtype: 'panel',
-                        layout: 'anchor',
-                        border: true,
-                        fieldDefaults: {
-                            labelWidth: 40
-                        },
-                        defaultType: 'textfield',
-                        bodyPadding: 5,
+                        xtype: 'container',
+                        layout: 'auto',
+                        style: 'text-align:center',
+                        border: false,
+                        height: 60,
+            			style: 'margin-left: 80px',
+                        defaults: {
+            				style: 'float:left; margin: 5px 5px'
+            			},
+                        defaultType: 'rallydatefield',
                         items: [
                             {
-                                fieldLabel: 'View Date:',
-                                itemId: 'viewDateField',
-                                anchor:'100%',
-                                width: 700,
-                                value: 'current'
+                                itemId: 'startDateField',
+                                width: 100,
+                                value: Rally.util.DateTime.add(new Date(), "day", -10)
                             },
                             {
-                                xtype: 'rallybutton',
-            					text: 'RUN FOR IT MARTY!',
-            					itemId: 'renderButton'
+                            	xtype: 'container',
+                            	itemId: 'sliderHolder',
+            					layout: 'fit',
+            					width: 500
+                			},
+                			{
+                                itemId: 'endDateField',
+                                width: 100,
+                                value: new Date()
+                            },
+                            {
+                            	xtype: 'rallybutton',
+                            	itemId: 'playButton',
+                            	text: 'Play'
                             }
                         ]
                     },
-            		*/
                     {
             			xtype: 'container',
             			itemId: 'cardboardHolder'
             		}
                 ],
+                
                 launch: function() {
+                
+                	var startDate = this.getStartDate();
+                	var endDate = this.down('#endDateField').getValue();
+                	this.currentDate = endDate;
+                	
+                	var startDateField = this.down('#startDateField');
+            		startDateField.on('blur', this.onStartDateChange, this);
+            		startDateField.on('select', this.onStartDateChange, this);
+            		
+            		var endDateField = this.down('#endDateField');
+            		endDateField.on('blur', this.onEndDateChange, this);
+            		endDateField.on('select', this.onEndDateChange, this);
+            		
+            		this.down('#playButton').on('click', this.playClicked, this);
+                
+                	this.noDays = Rally.util.DateTime.getDifference(endDate, startDate, 'day');
+                	var app = this;
+                
+                	this.down('#sliderHolder').add({
+            			xtype: 'slider',
+            			itemId: 'dateSlider',
+            			hideLabel: true,
+            			width: 700,
+            			increment: 1,
+            			minValue: 0,
+            			maxValue: this.noDays,
+            			value: this.noDays,
+            			tipText: function(thumb){
+            				var tickerDate = Rally.util.DateTime.add(app.getStartDate(), "day", thumb.value);
+            				return Ext.String.format('<b>{0}</b>',  Rally.util.DateTime.format(tickerDate, "m/d/Y"));
+            			},
+            			listeners: {
+            				'changecomplete': this.onDateChanged,
+            				scope: this
+            			}
+            		});
+                
             		this.down('#cardboardHolder').add({
             			xtype: 'historicalcardboard',
             			itemId: 'cardboard',
@@ -239,135 +647,81 @@
             			columnConfig: {
             				appContext : this.context
             			},
-            			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" }, { value: "Released" } ]
+            			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" } ]
             		});
-            	
-            		/* TODO
-                    var button = this.down('#renderButton');
-                    button.on('click', this.renderClicked, this);
-            		*/
                 },
                 
-                renderClicked: function(){
-                    var viewDateField = this.down('#viewDateField');
-                    var viewDate = viewDateField.getValue();
-            		
-            		if( !(viewDate && viewDate.length > 0)) {
-            			viewDate = 'current';
-            		}
-            		
-            		this.down('#cardboard').setViewDate(viewDate);
+                playClicked: function(){
+                	if(this.playTimer){
+                		clearTimeout(this.playTimer);
+                		delete this.playTimer;
+                	}
+                	else{
+                		var boundNextTick = Ext.bind(this.nextTick, this);
+                	
+                		// reset the slider to 0
+            	    	this.down('#dateSlider').setValue(0);
+            	    	this.playTimer = setTimeout(boundNextTick, 6000);
+                	}
                 },
                 
-                createSortMap: function(csvFields){
-                    var fields = csvFields.split(', ');
-                    var sortMap = {};
-                    for(var field in fields){
-                        if(fields.hasOwnProperty(field)){
-                            sortMap[field] = 1;
-                        }
-                    }
-                    
-                    return sortMap;
+                nextTick: function(){
+                	var boundNextTick = Ext.bind(this.nextTick, this);
+                
+                	var current = this.down('#dateSlider').getValue();
+                	var nextVal = current +1;
+            
+                	if(nextVal <= this.noDays){
+            	    	this.down('#dateSlider').setValue(nextVal);
+            	    	this.playTimer = setTimeout(boundNextTick, 6000);
+            	    }else{
+            	    	delete this.playTimer;
+            	    }
                 },
                 
-                doSearch: function(query, fields, sort, pageSize, callback){
-                    var workspace = this.context.getWorkspace().ObjectID;
-                    var queryUrl = 'https://rally1.rallydev.com/analytics/1.32/'+ workspace +
-                                    '/artifact/snapshot/query.js';
-                    var params = {
-                        find: query
-                    };
-                    
-                    if(fields){
-                        //TODO can't handle $slice expression
-                        params.fields = Ext.JSON.encode(fields);
-                    }
-                    
-                    if(sort){
-                        params.sort = sort;
-                    }
-                    
-                    if(pageSize){
-                        params.pagesize = pageSize;
-                    }
-                    
-                    Ext.Ajax.cors = true;
-                    Ext.Ajax.request({
-                        url: queryUrl,
-                        method: 'GET',
-                        params: params,
-                        withCredentials: true,
-                        success: function(response){
-                            var text = response.responseText;
-                            var json = Ext.JSON.decode(text);
-                            callback(json.Results);
-                        }
-                    });
+                onStartDateChange: function(){
+                	var newStart = this.getStartDate();
+                	var newEnd = Rally.util.DateTime.add(newStart, "day", 10);
+                	this.down('#endDateField').setValue(newEnd);
+                	this.down('#dateSlider').setValue(0);
                 },
                 
-                processSnapshots: function(snapshots){
-                
-                    var selectedFields = this.getFieldsFromSnapshots(snapshots);
-                    
-                    var snapshotStore = Ext.create('Ext.data.Store', {
-                        storeId:'snapshotStore',
-                        fields: selectedFields,
-                        data: {'items': snapshots},
-                        proxy: {
-                            type: 'memory',
-                            reader: {
-                                type: 'json',
-                                root: 'items'
-                            }
-                        }
-                    });
-                    
-                    var columns = this.createColumnsForFields(selectedFields);
-                    var snapshotGrid = Ext.create('Ext.grid.Panel', {
-                        title: 'Snapshots',
-                        //store: Ext.data.StoreManager.lookup('snapshotStore'),
-                        store: snapshotStore,
-                        columns: columns,
-                        height: 400
-                    });
-                    
-                    var gridHolder = this.down('#gridHolder');
-                    gridHolder.removeAll(true);
-                    gridHolder.add(snapshotGrid);
+                onEndDateChange: function(){
+                	var newEnd = this.getEndDate();
+                	var newStart = Rally.util.DateTime.add(newEnd, "day", -10);
+                	this.down('#startDateField').setValue(newStart);
+                	
+                	this.down('#dateSlider').setValue(this.noDays);
                 },
                 
-                getFieldsFromSnapshots: function(snapshots){
-                    if(snapshots.length === 0){
-                        return [];
-                    }
-                    
-                    var snapshot = snapshots[0];
-                    var fields = [];
-                    for(var key in snapshot){
-                        if (snapshot.hasOwnProperty(key)){
-                            fields.push(key);
-                        }
-                    }
-                    
-                    return fields;
+                getStartDate: function(){
+                	return this.down('#startDateField').getValue();
                 },
                 
-                createColumnsForFields: function(fields){
-                    var columns = [];
-                    for(var i=0; i < fields.length; ++i){
-                        var col = {
-                            header: fields[i],
-                            dataIndex: fields[i]
-                        };
-                        
-                        if(fields[i] === 'Name'){
-                            col.flex = 1;
-                        }
-                        columns.push(col);
-                    }
-                    
-                    return columns;
+                getEndDate: function(){
+                	return this.down('#endDateField').getValue();
+                },
+                
+                setCurrentDate: function(newDate){
+                	this.currentDate = newDate;
+                	this.setTitleDate(newDate);
+                	this.down('#cardboard').updateViewDate(newDate);
+                },
+                
+                setTitleDate: function(date){
+                	var title = '<h1>Current Date: '+ Rally.util.DateTime.format(date, "m/d/Y T(P)") +'</h1>';
+                	this.down('#titleDate').update(title);
+                },
+                
+                getDateSliderValue: function(){
+                	var tickCount = this.down('#dateSlider').getValue();
+                	var date = Rally.util.DateTime.add(this.getStartDate(), "day", tickCount);
+                	return date;
+                },
+                
+                onDateChanged: function(slider, newTickCount){
+                	var newDate = this.getDateSliderValue();
+                	this.setCurrentDate(newDate);
                 }
             });
 

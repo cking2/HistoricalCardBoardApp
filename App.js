@@ -18,7 +18,7 @@ Ext.define('CustomApp', {
             style: 'text-align:center',
             border: false,
             height: 60,
-			style: 'margin-left: 170px',
+			style: 'margin-left: 80px',
             defaults: {
 				style: 'float:left; margin: 5px 5px'
 			},
@@ -33,7 +33,7 @@ Ext.define('CustomApp', {
                 	xtype: 'container',
                 	itemId: 'sliderHolder',
 					layout: 'fit',
-					width: 700
+					width: 500
     			},
     			{
                     itemId: 'endDateField',
