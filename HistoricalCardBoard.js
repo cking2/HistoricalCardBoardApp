@@ -73,7 +73,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 		overlayEl.setOpacity(1);
 		
 		Ext.each(this.overlay.items.items, function(ocards) {
-			ocards.getEl().setOpacity(1,true);
+			ocards.getEl().setOpacity(1);
 		}, this);
 	},
 	
