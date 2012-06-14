@@ -40,14 +40,16 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 			viewDate: newViewDate,
 			startHidden: true
 		});
+		//remove excess dnd elements
+		Ext.each(Ext.query(".x-dd-drag-proxy"), function(item) {
+			Ext.removeNode(item);
+		});
 	},
 	
 	createAnimationOverlay: function() {
-		//var overlay = new Ext.Element(document.createElement("div"));
 		this.overlay = Ext.widget('container', {
 			renderTo: Ext.getBody()
 		});
-		// Ext.getBody().appendChild(overlay.getEl());
 		var overlayEl = this.overlay.getEl();
 		overlayEl.setOpacity(0);
 		overlayEl.setStyle("position", "absolute");
@@ -61,8 +63,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 			Ext.each(column.cards, function(card) {
 				var oldCardConfig = card.config;
 				var newCard = Ext.widget(oldCardConfig.xtype, oldCardConfig);
-				//var newCard = Ext.clone(card.getEl());
-				//overlayEl.appendChild(newCard.getEl());
 				this.overlay.add(newCard);
 				var newCardEl = newCard.getEl();
 				newCardEl.setStyle("position", "absolute");
@@ -88,6 +88,8 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	},
 	
 	animateDelta: function() {
+		debugger;
+		console.log("Animating");
 		if(!this.overlay){
 			return;
 		}
@@ -121,6 +123,10 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 		}, this);
 		
 		this.storiesToDelete = toDelete.length;
+		if(this.storiesToDelete === 0) {
+			this.moveOldStories(toMove);
+		}
+		
 		Ext.each(toDelete, function(card) {
 			card.animate({
 				to: {
@@ -130,7 +136,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 					afteranimate: function(){
 						this.storiesToDelete--;
 						if(this.storiesToDelete === 0){
-							console.log("deletes done");
 							this.moveOldStories(toMove);
 						}
 					}, 
@@ -143,6 +148,9 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	
 	moveOldStories: function(toMove){
 		this.storiesToMove = toMove.length;
+		if(this.storiesToMove === 0) {
+			this.displayNewStories();
+		}
 		Ext.each(toMove, function(cards) {
 			cards.oldCard.animate({
 				duration: 1000,
@@ -168,7 +176,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 						}
 						this.storiesToMove--;
 						if(this.storiesToMove === 0){
-							console.log("moves done");
 							this.displayNewStories();
 						}
 					}, 
@@ -195,7 +202,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 						afteranimate: function(){
 							this.storiesToDisplay[columnName]--;
 							if(this.columnsToDisplay === 0 && this.storiesToDisplay[columnName] === 0){
-								console.log("displayed new stories");
 								Ext.destroy(this.overlay);
 								delete this.overlay;
 							}
@@ -208,7 +214,6 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	},
 	
 	refresh: function(newConfig) {
-		//update the config
 		Ext.merge(this, newConfig);
 		if(newConfig.viewDate){
 			this.columnConfig.viewDate = newConfig.viewDate;
@@ -237,7 +242,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoard', {
 	
 	_parseColumns: function(models) {
 		this.callParent(arguments);
-		this.stillToLoad = this.columnDefinitions.length;
+		//this.stillToLoad = this.columnDefinitions.length;
 	},
 	
 	_addColumn: function(column) {

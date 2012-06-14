@@ -16,12 +16,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 	},
 	
 	loadSnapshots: function(models){
-	
 		this.models = models;
 		
 		var queryObj = {
 			"__At": this.viewDate,
-			"KanbanState": this.getValue(),
+			"ScheduleState": this.getValue(),
 			"_ProjectHierarchy": this.appContext.getProject().ObjectID,
 			"_Type": {"$in": this.types }
 		};
@@ -36,12 +35,12 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
             find: query
         };
         
-		params.fields = Ext.JSON.encode(["Rank", "KanbanState", "ObjectID", "Owner", "Name", "_UnformattedID", "Blocked", "Ready", "_ValidFrom", "_Type", "Project", "_ProjectHierarchy"]);
+		params.fields = Ext.JSON.encode(["Rank", "ObjectID", "Owner", "Name", "ScheduleState", "_UnformattedID", "Blocked", "Ready", "_ValidFrom", "_Type", "Project", "_ProjectHierarchy"]);
 		var sortObj = {
-			"_ValidFrom": 1
+			"Rank": 1
 		};
         params.sort = Ext.JSON.encode(sortObj);
-        params.pagesize = 200;
+        params.pagesize = 10;
 		
 		Ext.Ajax.cors = true;
         Ext.Ajax.request({
@@ -61,7 +60,7 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 	processSnapshots: function(snapshots){
 		var allRecords = [];
 		var ownerOidsMap = {};
-
+		
 		var l = snapshots.length;
 		for(var i=0; i < l; ++i){
 			var snapshot = snapshots[i];
@@ -108,10 +107,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 			
 			// we now have all the data and can add the cards
 			this.addCardsWithOwners(allRecords);
-			
+			console.log("--------------------------------------------------");
 			this.parentCardboard.stillToLoad--;
 			if(this.parentCardboard.stillToLoad === 0){
-				this.parentCardboard.animateDelta();
+				// Setting a timeout here for 1 sec to allow all the keys to be entered into map.
+				Ext.Function.defer(function() {this.parentCardboard.animateDelta()}, 1000, this);
 			}
 			
 		}, this);
@@ -159,6 +159,31 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 		return new this.models[type](snapshot);
 	},
 	
+	createAndAddCards: function(records) {
+		this._sortCards(records);
+
+		this.records = [];
+
+		this.suspendLayout = true;
+		//shallow copy
+		var recordsTemp = records.concat([]).reverse();
+
+		var me = this;
+		function createCards(){
+			if(!recordsTemp.length){
+				this.isSet = true;
+				me.fireEvent('ready',this);
+				return;
+			}
+			me.createAndAddCard(recordsTemp.pop());
+			Ext.Function.defer(createCards, 1);
+		}
+
+		createCards();
+		this.suspendLayout = false;
+		delete this.isSet;
+	},
+	
 	createAndAddCard: function(record, index) {
 		if(this.isMatchingRecord(record)) {
 			var config = Ext.applyIf({
@@ -174,8 +199,19 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 		}
 	},
 	
+	/*
+	This is a mess when dealing with ScheduleState, default method will always return null
+	since it's comparing a String to numerical value.
+	The analytics api returns ScheduleState as a number that appears to be dependant on the
+	workspace id.
+	
+	For now just going to trust the query an always return true.
+	*/
+	isMatchingRecord: function(record) {
+		return true;
+	},
+	
 	addCard: function(card, index) {
-		
 		if(!this.cards){
 			this.cards = [];
 			this.objectIDToCardMap = {};
@@ -184,21 +220,11 @@ Ext.define('Rally.ui.cardboard.HistoricalCardBoardColumn', {
 		this.cards.push(card);
 		var key = ""+ card.record.get('ObjectID');
 		this.objectIDToCardMap[key] = card;
-		
-		if(!this.objectIDToCardMap){
-			this.objectIDToCardMap = {};
-		}
+		console.log(key);
 		
 		this.callParent(arguments);
-
-		var key = ""+ card.record.get('ObjectID');
-		this.objectIDToCardMap[key] = card;
 		
 		card.posBox = card.getEl().getBox();
-		
-		// card.getEl().on('mouseover', function(){
-			// console.log('x,y ='+ card.getEl().getX());
-		// });
 	},
 	
 	refresh: function(newConfig) {

@@ -3,7 +3,8 @@ Ext.define('CustomApp', {
     componentCls: 'app',
     layout: {
         type: 'vbox',
-        align: 'stretch'
+        align: 'stretch',
+		style: 'margin: 0 auto;'
     },
     items:[
     	{
@@ -15,10 +16,8 @@ Ext.define('CustomApp', {
         {
             xtype: 'container',
             layout: 'auto',
-            style: 'text-align:center',
             border: false,
             height: 60,
-			style: 'margin-left: 80px',
             defaults: {
 				style: 'float:left; margin: 5px 5px'
 			},
@@ -26,23 +25,24 @@ Ext.define('CustomApp', {
             items: [
                 {
                     itemId: 'startDateField',
-                    width: 100,
+                    width: 110,
                     value: Rally.util.DateTime.add(new Date(), "day", -10)
                 },
                 {
                 	xtype: 'container',
                 	itemId: 'sliderHolder',
 					layout: 'fit',
-					width: 500
+					width: '60%'
     			},
     			{
                     itemId: 'endDateField',
-                    width: 100,
+                    width: 110,
                     value: new Date()
                 },
                 {
                 	xtype: 'rallybutton',
                 	itemId: 'playButton',
+					width: 60,
                 	text: 'Play'
                 }
             ]
@@ -95,12 +95,12 @@ Ext.define('CustomApp', {
 			xtype: 'historicalcardboard',
 			itemId: 'cardboard',
 			types: ['HierarchicalRequirement', 'Defect'],
-			attribute: 'KanbanState',
+			attribute: 'ScheduleState',
 			viewDate: 'current',
 			columnConfig: {
 				appContext : this.context
 			},
-			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" } ]
+			columns: [ { value: "Backlog" }, { value: "Defined" }, { value: "In-Progress" }, { value: "Completed" }, { value: "Accepted" } ]
 		});
     },
     
