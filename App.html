@@ -597,31 +597,44 @@
                         border: false,
                         height: 60,
                         defaults: {
-            				style: 'float:left; margin: 5px 5px'
+            				style: 'margin: auto;'
             			},
-                        defaultType: 'rallydatefield',
                         items: [
                             {
-                                itemId: 'startDateField',
-                                width: 110,
-                                value: Rally.util.DateTime.add(new Date(), "day", -10)
-                            },
-                            {
-                            	xtype: 'container',
-                            	itemId: 'sliderHolder',
-            					layout: 'fit',
-            					width: '60%'
-                			},
-                			{
-                                itemId: 'endDateField',
-                                width: 110,
-                                value: new Date()
-                            },
-                            {
-                            	xtype: 'rallybutton',
-                            	itemId: 'playButton',
-            					width: 60,
-                            	text: 'Play'
+                                xtype: 'container',
+            					layout: 'auto',
+            					border: false,
+            					height: 60,
+            					width: 1000,
+            					defaults: {
+            						style: 'float:left; margin: 5px 5px;'
+            					},
+            					defaultType: 'rallydatefield',
+            					items: [
+            						{
+            							itemId: 'startDateField',
+            							width: 110,
+            							value: Rally.util.DateTime.add(new Date(), "day", -10)
+            						},
+            						{
+            							xtype: 'container',
+            							itemId: 'sliderHolder',
+            							layout: 'fit',
+            							width: 680
+            							
+            						},
+            						{
+            							itemId: 'endDateField',
+            							width: 110,
+            							value: new Date()
+            						},
+            						{
+            							xtype: 'rallybutton',
+            							itemId: 'playButton',
+            							width: 60,
+            							text: 'Play'
+            						}
+            					]
                             }
                         ]
                     },
