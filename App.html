@@ -91,12 +91,11 @@
             	},
             	
             	loadSnapshots: function(models){
-            	
             		this.models = models;
             		
             		var queryObj = {
             			"__At": this.viewDate,
-            			"KanbanState": this.getValue(),
+            			"ScheduleState": this.getValue(),
             			"_ProjectHierarchy": this.appContext.getProject().ObjectID,
             			"_Type": {"$in": this.types }
             		};
@@ -111,12 +110,12 @@
                         find: query
                     };
                     
-            		params.fields = Ext.JSON.encode(["Rank", "KanbanState", "ObjectID", "Owner", "Name", "_UnformattedID", "Blocked", "Ready", "_ValidFrom", "_Type", "Project", "_ProjectHierarchy"]);
+            		params.fields = Ext.JSON.encode(["Rank", "ObjectID", "Owner", "Name", "ScheduleState", "_UnformattedID", "Blocked", "Ready", "_ValidFrom", "_Type", "Project", "_ProjectHierarchy"]);
             		var sortObj = {
-            			"_ValidFrom": 1
+            			"Rank": 1
             		};
                     params.sort = Ext.JSON.encode(sortObj);
-                    params.pagesize = 200;
+                    params.pagesize = 10;
             		
             		Ext.Ajax.cors = true;
                     Ext.Ajax.request({
@@ -136,7 +135,7 @@
             	processSnapshots: function(snapshots){
             		var allRecords = [];
             		var ownerOidsMap = {};
-            
+            		
             		var l = snapshots.length;
             		for(var i=0; i < l; ++i){
             			var snapshot = snapshots[i];
@@ -183,10 +182,11 @@
             			
             			// we now have all the data and can add the cards
             			this.addCardsWithOwners(allRecords);
-            			
+            			console.log("--------------------------------------------------");
             			this.parentCardboard.stillToLoad--;
             			if(this.parentCardboard.stillToLoad === 0){
-            				this.parentCardboard.animateDelta();
+            				// Setting a timeout here for 1 sec to allow all the keys to be entered into map.
+            				Ext.Function.defer(function() {this.parentCardboard.animateDelta()}, 1000, this);
             			}
             			
             		}, this);
@@ -234,6 +234,31 @@
             		return new this.models[type](snapshot);
             	},
             	
+            	createAndAddCards: function(records) {
+            		this._sortCards(records);
+            
+            		this.records = [];
+            
+            		this.suspendLayout = true;
+            		//shallow copy
+            		var recordsTemp = records.concat([]).reverse();
+            
+            		var me = this;
+            		function createCards(){
+            			if(!recordsTemp.length){
+            				this.isSet = true;
+            				me.fireEvent('ready',this);
+            				return;
+            			}
+            			me.createAndAddCard(recordsTemp.pop());
+            			Ext.Function.defer(createCards, 1);
+            		}
+            
+            		createCards();
+            		this.suspendLayout = false;
+            		delete this.isSet;
+            	},
+            	
             	createAndAddCard: function(record, index) {
             		if(this.isMatchingRecord(record)) {
             			var config = Ext.applyIf({
@@ -249,8 +274,19 @@
             		}
             	},
             	
+            	/*
+            	This is a mess when dealing with ScheduleState, default method will always return null
+            	since it's comparing a String to numerical value.
+            	The analytics api returns ScheduleState as a number that appears to be dependant on the
+            	workspace id.
+            	
+            	For now just going to trust the query an always return true.
+            	*/
+            	isMatchingRecord: function(record) {
+            		return true;
+            	},
+            	
             	addCard: function(card, index) {
-            		
             		if(!this.cards){
             			this.cards = [];
             			this.objectIDToCardMap = {};
@@ -259,21 +295,11 @@
             		this.cards.push(card);
             		var key = ""+ card.record.get('ObjectID');
             		this.objectIDToCardMap[key] = card;
-            		
-            		if(!this.objectIDToCardMap){
-            			this.objectIDToCardMap = {};
-            		}
+            		console.log(key);
             		
             		this.callParent(arguments);
-            
-            		var key = ""+ card.record.get('ObjectID');
-            		this.objectIDToCardMap[key] = card;
             		
             		card.posBox = card.getEl().getBox();
-            		
-            		// card.getEl().on('mouseover', function(){
-            			// console.log('x,y ='+ card.getEl().getX());
-            		// });
             	},
             	
             	refresh: function(newConfig) {
@@ -323,14 +349,16 @@
             			viewDate: newViewDate,
             			startHidden: true
             		});
+            		//remove excess dnd elements
+            		Ext.each(Ext.query(".x-dd-drag-proxy"), function(item) {
+            			Ext.removeNode(item);
+            		});
             	},
             	
             	createAnimationOverlay: function() {
-            		//var overlay = new Ext.Element(document.createElement("div"));
             		this.overlay = Ext.widget('container', {
             			renderTo: Ext.getBody()
             		});
-            		// Ext.getBody().appendChild(overlay.getEl());
             		var overlayEl = this.overlay.getEl();
             		overlayEl.setOpacity(0);
             		overlayEl.setStyle("position", "absolute");
@@ -344,8 +372,6 @@
             			Ext.each(column.cards, function(card) {
             				var oldCardConfig = card.config;
             				var newCard = Ext.widget(oldCardConfig.xtype, oldCardConfig);
-            				//var newCard = Ext.clone(card.getEl());
-            				//overlayEl.appendChild(newCard.getEl());
             				this.overlay.add(newCard);
             				var newCardEl = newCard.getEl();
             				newCardEl.setStyle("position", "absolute");
@@ -371,6 +397,8 @@
             	},
             	
             	animateDelta: function() {
+            		debugger;
+            		console.log("Animating");
             		if(!this.overlay){
             			return;
             		}
@@ -404,6 +432,10 @@
             		}, this);
             		
             		this.storiesToDelete = toDelete.length;
+            		if(this.storiesToDelete === 0) {
+            			this.moveOldStories(toMove);
+            		}
+            		
             		Ext.each(toDelete, function(card) {
             			card.animate({
             				to: {
@@ -413,7 +445,6 @@
             					afteranimate: function(){
             						this.storiesToDelete--;
             						if(this.storiesToDelete === 0){
-            							console.log("deletes done");
             							this.moveOldStories(toMove);
             						}
             					}, 
@@ -426,6 +457,9 @@
             	
             	moveOldStories: function(toMove){
             		this.storiesToMove = toMove.length;
+            		if(this.storiesToMove === 0) {
+            			this.displayNewStories();
+            		}
             		Ext.each(toMove, function(cards) {
             			cards.oldCard.animate({
             				duration: 1000,
@@ -451,7 +485,6 @@
             						}
             						this.storiesToMove--;
             						if(this.storiesToMove === 0){
-            							console.log("moves done");
             							this.displayNewStories();
             						}
             					}, 
@@ -478,7 +511,6 @@
             						afteranimate: function(){
             							this.storiesToDisplay[columnName]--;
             							if(this.columnsToDisplay === 0 && this.storiesToDisplay[columnName] === 0){
-            								console.log("displayed new stories");
             								Ext.destroy(this.overlay);
             								delete this.overlay;
             							}
@@ -491,7 +523,6 @@
             	},
             	
             	refresh: function(newConfig) {
-            		//update the config
             		Ext.merge(this, newConfig);
             		if(newConfig.viewDate){
             			this.columnConfig.viewDate = newConfig.viewDate;
@@ -520,7 +551,7 @@
             	
             	_parseColumns: function(models) {
             		this.callParent(arguments);
-            		this.stillToLoad = this.columnDefinitions.length;
+            		//this.stillToLoad = this.columnDefinitions.length;
             	},
             	
             	_addColumn: function(column) {
@@ -550,7 +581,8 @@
                 componentCls: 'app',
                 layout: {
                     type: 'vbox',
-                    align: 'stretch'
+                    align: 'stretch',
+            		style: 'margin: 0 auto;'
                 },
                 items:[
                 	{
@@ -562,10 +594,8 @@
                     {
                         xtype: 'container',
                         layout: 'auto',
-                        style: 'text-align:center',
                         border: false,
                         height: 60,
-            			style: 'margin-left: 80px',
                         defaults: {
             				style: 'float:left; margin: 5px 5px'
             			},
@@ -573,23 +603,24 @@
                         items: [
                             {
                                 itemId: 'startDateField',
-                                width: 100,
+                                width: 110,
                                 value: Rally.util.DateTime.add(new Date(), "day", -10)
                             },
                             {
                             	xtype: 'container',
                             	itemId: 'sliderHolder',
             					layout: 'fit',
-            					width: 500
+            					width: '60%'
                 			},
                 			{
                                 itemId: 'endDateField',
-                                width: 100,
+                                width: 110,
                                 value: new Date()
                             },
                             {
                             	xtype: 'rallybutton',
                             	itemId: 'playButton',
+            					width: 60,
                             	text: 'Play'
                             }
                         ]
@@ -642,12 +673,12 @@
             			xtype: 'historicalcardboard',
             			itemId: 'cardboard',
             			types: ['HierarchicalRequirement', 'Defect'],
-            			attribute: 'KanbanState',
+            			attribute: 'ScheduleState',
             			viewDate: 'current',
             			columnConfig: {
             				appContext : this.context
             			},
-            			columns: [ { value: "Initial AC" }, { value: "Ranked" }, { value: "In Dev" }, { value: "In Test" }, { value: "Accepted" }, { value: "Merged" } ]
+            			columns: [ { value: "Backlog" }, { value: "Defined" }, { value: "In-Progress" }, { value: "Completed" }, { value: "Accepted" } ]
             		});
                 },
                 
