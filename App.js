@@ -118,30 +118,23 @@ Ext.define('CustomApp', {
     },
     
     playClicked: function(){
-    	if(this.playTimer){
-    		clearTimeout(this.playTimer);
-    		delete this.playTimer;
-    	}
-    	else{
-    		var boundNextTick = Ext.bind(this.nextTick, this);
+		debugger;
     	
-    		// reset the slider to 0
-	    	this.down('#dateSlider').setValue(0);
-	    	this.playTimer = setTimeout(boundNextTick, 6000);
-    	}
+		// reset the slider to 0
+		this.down('#dateSlider').setValue(0);
+		this.onDateChanged();
+		Ext.Function.defer(function() {this.nextTick()}, 6000, this);
     },
     
     nextTick: function(){
-    	var boundNextTick = Ext.bind(this.nextTick, this);
-    
+		console.log("nextTick");
     	var current = this.down('#dateSlider').getValue();
     	var nextVal = current +1;
 
     	if(nextVal <= this.noDays){
 	    	this.down('#dateSlider').setValue(nextVal);
-	    	this.playTimer = setTimeout(boundNextTick, 6000);
-	    }else{
-	    	delete this.playTimer;
+			this.onDateChanged();
+	    	Ext.Function.defer(function() {this.nextTick()}, 6000, this);
 	    }
     },
     
@@ -186,6 +179,7 @@ Ext.define('CustomApp', {
     },
     
     onDateChanged: function(slider, newTickCount){
+		console.log("onDateChanged");
     	var newDate = this.getDateSliderValue();
     	this.setCurrentDate(newDate);
     }
