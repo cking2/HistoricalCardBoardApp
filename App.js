@@ -70,15 +70,16 @@ Ext.define('CustomApp', {
     
     	var startDate = this.getStartDate();
     	var endDate = this.down('#endDateField').getValue();
+		var changeFlag = false;
     	this.currentDate = endDate;
     	
     	var startDateField = this.down('#startDateField');
-		startDateField.on('blur', this.onStartDateChange, this);
-		startDateField.on('select', this.onStartDateChange, this);
+		startDateField.on('change', this.onStartDateChange, this);
+		//startDateField.on('select', this.onStartDateChange, this);
 		
 		var endDateField = this.down('#endDateField');
-		endDateField.on('blur', this.onEndDateChange, this);
-		endDateField.on('select', this.onEndDateChange, this);
+		endDateField.on('change', this.onEndDateChange, this);
+		//endDateField.on('select', this.onEndDateChange, this);
 		
 		this.down('#playButton').on('click', this.playClicked, this);
     
@@ -144,22 +145,28 @@ Ext.define('CustomApp', {
     },
     
     onStartDateChange: function(){
-		console.log("onStartDateChanged");
-    	var newStart = this.getStartDate();
-    	var newEnd = Rally.util.DateTime.add(newStart, "day", 10);
-    	this.down('#endDateField').setValue(newEnd);
-    	this.down('#dateSlider').setValue(0);
-		this.onDateChanged();
+		if(!this.changeFlag) {
+			this.changeFlag = true;
+			console.log("onStartDateChanged");
+			var newStart = this.getStartDate();
+			var newEnd = Rally.util.DateTime.add(newStart, "day", 10);
+			this.down('#endDateField').setValue(newEnd);
+			this.down('#dateSlider').setValue(0);
+			this.onDateChanged();
+		}
     },
     
     onEndDateChange: function(){
-		console.log("onEndDateChange");
-    	var newEnd = this.getEndDate();
-    	var newStart = Rally.util.DateTime.add(newEnd, "day", -10);
-    	this.down('#startDateField').setValue(newStart);
-    	
-    	this.down('#dateSlider').setValue(this.noDays);
-		this.onDateChanged();
+		if(!this.changeFlag) {
+			this.changeFlag = true;
+			console.log("onEndDateChange");
+			var newEnd = this.getEndDate();
+			var newStart = Rally.util.DateTime.add(newEnd, "day", -10);
+			this.down('#startDateField').setValue(newStart);
+			
+			this.down('#dateSlider').setValue(this.noDays);
+			this.onDateChanged();
+		}
     },
     
     getStartDate: function(){
@@ -174,6 +181,7 @@ Ext.define('CustomApp', {
     	this.currentDate = newDate;
     	this.setTitleDate(newDate);
     	this.down('#cardboard').updateViewDate(newDate);
+		this.changeFlag = false;
     },
     
     setTitleDate: function(date){
